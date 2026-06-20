@@ -141,7 +141,13 @@ def build_dispatcher(storage: FileStorage) -> Dispatcher:
 
 async def run_bot(config: Config) -> None:
     storage = FileStorage(config.data_dir)
-    avito = AvitoClient(config.avito_client_id, config.avito_client_secret, config.avito_user_id)
+    avito = AvitoClient(
+        config.avito_client_id,
+        config.avito_client_secret,
+        config.avito_user_id,
+        log_responses=config.avito_log_responses,
+        debug_fetch_all_chats=config.avito_debug_fetch_all_chats,
+    )
     bot = Bot(config.telegram_bot_token)
     dispatcher = build_dispatcher(storage)
     poller = asyncio.create_task(poll_avito(bot, storage, avito, config))
@@ -160,9 +166,10 @@ async def poll_avito(bot: Bot, storage: FileStorage, avito: AvitoClient, config:
             processed = storage.processed_messages()
             poll_result = await avito.unread_incoming_messages(processed)
             logger.info(
-                "Avito check: chats=%s, unread_chats=%s, new_messages=%s, recipients=%s",
+                "Avito check: chats=%s, unread_chats=%s, checked_message_chats=%s, new_messages=%s, recipients=%s",
                 poll_result.total_chats,
                 poll_result.unread_chats,
+                poll_result.checked_message_chats,
                 len(poll_result.new_messages),
                 len(storage.recipients()),
             )

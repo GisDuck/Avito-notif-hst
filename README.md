@@ -28,6 +28,8 @@ AVITO_CLIENT_SECRET=replace_me
 AVITO_USER_ID=
 POLL_INTERVAL_SECONDS=10
 GROUP_WINDOW_SECONDS=10
+AVITO_LOG_RESPONSES=false
+AVITO_DEBUG_FETCH_ALL_CHATS=false
 DATA_DIR=./data
 ```
 
@@ -67,3 +69,21 @@ python -m src.main
 - фильтрация только чатов с `unread_count > 0`.
 
 Если у вашего Avito-приложения мессенджер требует другой тип OAuth-доступа, нужно будет заменить получение токена в `src/avito_api.py` на выданный Avito способ авторизации. Остальная логика бота от этого не меняется.
+
+## Диагностика Avito
+
+Если бот видит чаты, но не присылает сообщения, временно добавьте в `.env`:
+
+```env
+AVITO_LOG_RESPONSES=true
+AVITO_DEBUG_FETCH_ALL_CHATS=true
+```
+
+После пересборки в логах появятся:
+
+- JSON-ответы Avito API без `access_token`;
+- ключи, которые реально пришли в объектах чатов;
+- найденное поле непрочитанных сообщений;
+- количество чатов, по которым бот сходил за сообщениями.
+
+`AVITO_DEBUG_FETCH_ALL_CHATS=true` нужен только для проверки. В обычном режиме лучше вернуть `false`, чтобы бот не дергал сообщения по всем чатам без необходимости.
