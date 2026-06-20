@@ -16,6 +16,13 @@ class IncomingMessage:
     text: str
 
 
+@dataclass(frozen=True)
+class AvitoPollResult:
+    total_chats: int
+    unread_chats: int
+    new_messages: list[IncomingMessage]
+
+
 class AvitoClient:
     def __init__(self, client_id: str, client_secret: str, user_id: str | None) -> None:
         self.client_id = client_id
@@ -28,14 +35,16 @@ class AvitoClient:
     async def close(self) -> None:
         await self._client.aclose()
 
-    async def unread_incoming_messages(self, processed_ids: set[str]) -> list[IncomingMessage]:
+    async def unread_incoming_messages(self, processed_ids: set[str]) -> AvitoPollResult:
         user_id = await self.get_user_id()
         chats = await self._get_chats(user_id)
+        unread_chats = 0
         result: list[IncomingMessage] = []
         for chat in chats:
             unread_count = self._int(chat.get("unread_count") or chat.get("unreadCount"))
             if unread_count <= 0:
                 continue
+            unread_chats += 1
 
             chat_id = str(chat.get("id") or chat.get("chat_id") or "")
             if not chat_id:
@@ -49,7 +58,11 @@ class AvitoClient:
                 result.append(message)
 
         result.sort(key=lambda item: item.created_at)
-        return result
+        return AvitoPollResult(
+            total_chats=len(chats),
+            unread_chats=unread_chats,
+            new_messages=result,
+        )
 
     async def get_user_id(self) -> str:
         if self.user_id:

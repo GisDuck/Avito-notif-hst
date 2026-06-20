@@ -17,6 +17,7 @@ from .storage import FileStorage, User
 
 
 MOSCOW_TZ = ZoneInfo("Europe/Moscow")
+logger = logging.getLogger(__name__)
 
 
 def build_dispatcher(storage: FileStorage) -> Dispatcher:
@@ -157,18 +158,31 @@ async def poll_avito(bot: Bot, storage: FileStorage, avito: AvitoClient, config:
     while True:
         try:
             processed = storage.processed_messages()
-            messages = await avito.unread_incoming_messages(processed)
-            if messages:
+            poll_result = await avito.unread_incoming_messages(processed)
+            logger.info(
+                "Avito check: chats=%s, unread_chats=%s, new_messages=%s, recipients=%s",
+                poll_result.total_chats,
+                poll_result.unread_chats,
+                len(poll_result.new_messages),
+                len(storage.recipients()),
+            )
+            if poll_result.new_messages:
                 await asyncio.sleep(config.group_window_seconds)
                 processed = storage.processed_messages()
-                fresh = [message for message in messages if message.id not in processed]
+                fresh = [message for message in poll_result.new_messages if message.id not in processed]
                 if fresh:
-                    await send_notifications(bot, storage.recipients(), fresh)
+                    recipients = storage.recipients()
+                    await send_notifications(bot, recipients, fresh)
                     storage.mark_processed([message.id for message in fresh])
+                    logger.info(
+                        "Avito notifications sent: messages=%s, recipients=%s",
+                        len(fresh),
+                        len(recipients),
+                    )
         except asyncio.CancelledError:
             raise
         except Exception:
-            logging.exception("Avito polling failed")
+            logger.exception("Avito polling failed")
         await asyncio.sleep(config.poll_interval_seconds)
 
 
@@ -181,7 +195,7 @@ async def send_notifications(bot: Bot, recipients: list[int], messages: list[Inc
             try:
                 await bot.send_message(recipient, text, parse_mode="HTML")
             except Exception:
-                logging.exception("Failed to send notification to %s", recipient)
+                logger.exception("Failed to send notification to %s", recipient)
 
 
 def _format_notifications(messages: list[IncomingMessage]) -> list[str]:
